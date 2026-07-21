@@ -65,16 +65,19 @@ class _PairingScreenState extends State<PairingScreen> {
         final token = (respData['Token'] ?? respData['token'] ?? '') as String;
         final deviceId = (respData['DeviceId'] ?? respData['deviceId'] ?? '') as String;
 
-        // Guardar token y perfil del PC
-        await _secureStorage.saveToken(token);
-        await _secureStorage.addLinkedPc({
+        // Guardar token y perfil del PC (actualizando tanto la lista como la PC activa)
+        final pcProfile = {
           'Name': 'Computadora Principal',
           'LanUrl': lanUrl,
           'TunnelUrl': tunnelUrl,
           'PairingToken': pairingToken,
           'DeviceId': deviceId,
           'LastConnectedUrl': targetUrl
-        });
+        };
+
+        await _secureStorage.saveToken(token);
+        await _secureStorage.addLinkedPc(pcProfile);
+        await _secureStorage.saveActivePc(pcProfile);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

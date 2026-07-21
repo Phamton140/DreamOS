@@ -48,6 +48,16 @@ namespace DreamOS.Api.Services
                 Console.WriteLine($"  \"PairingToken\": \"{rawToken}\"");
                 Console.WriteLine("}");
                 Console.WriteLine("=======================================================\n");
+
+                // Abrir automáticamente el navegador del PC con el Código QR de emparejamiento
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("http://localhost:5000/qr-page") { UseShellExecute = true });
+                }
+                catch
+                {
+                    // Ignorar si el SO prohíbe el lanzamiento del navegador
+                }
             }
             catch (Exception ex)
             {

@@ -83,9 +83,15 @@ namespace DreamOS.Infrastructure.Services
             if (doc == null) return false;
 
             var expiresAt = doc["expires_at"].AsDateTime;
-            // col.Delete(hash); // Deshabilitado en MVP para evitar fallos si el cliente reintenta la petición en LAN/Túnel
+            if (expiresAt <= DateTime.UtcNow)
+            {
+                col.Delete(hash);
+                return false;
+            }
 
-            return expiresAt > DateTime.UtcNow;
+            // Consumir el token una vez emparejado el dispositivo
+            col.Delete(hash);
+            return true;
         }
 
         public string GenerateJwtToken(string deviceId, string deviceName)
