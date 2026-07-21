@@ -37,6 +37,7 @@ namespace DreamOS.Api.Controllers
             _dbContext = dbContext;
         }
 
+        [AllowAnonymous]
         [HttpGet("settings")]
         public IActionResult GetSettings()
         {
@@ -56,6 +57,7 @@ namespace DreamOS.Api.Controllers
             return Ok(safeSettings);
         }
 
+        [AllowAnonymous]
         [HttpPost("settings")]
         public IActionResult SaveSettings([FromBody] AiSettings model)
         {

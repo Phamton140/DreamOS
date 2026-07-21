@@ -17,6 +17,8 @@ namespace DreamOS.Infrastructure.Services
 {
     public class OpenAiIaProvider : IIaProvider
     {
+        public string ProviderName => "OpenAI";
+
         private readonly HttpClient _httpClient;
         private readonly LiteDbContext _dbContext;
 
@@ -33,7 +35,7 @@ namespace DreamOS.Infrastructure.Services
             return collection.FindById("default") ?? new AiSettings();
         }
 
-        public async Task<IaAnswer> AskAsync(string prompt, ProjectContext context)
+        public async Task<string> AskAsync(string prompt, ProjectContext context)
         {
             var settings = GetSettings();
             var apiKey = !string.IsNullOrEmpty(settings.ApiKey) 
@@ -85,11 +87,7 @@ namespace DreamOS.Infrastructure.Services
                 .GetProperty("content")
                 .GetString();
 
-            return new IaAnswer
-            {
-                Answer = content ?? "Sin respuesta del modelo.",
-                RelatedFiles = new List<string>()
-            };
+            return content ?? "Sin respuesta del modelo.";
         }
 
         public async Task<List<FileChange>> ModifyProjectAsync(string prompt, ProjectContext context, List<string> targetFiles)
@@ -224,7 +222,7 @@ Importante: El campo 'newContent' debe contener todo el código fuente listo par
 
                 text = Regex.Replace(text, @"\""\s*\+\s*\""", "");
 
-                var wrapper = JsonSerializer.Deserialize<FileChangesWrapper>(text, new JsonSerializerOptions
+                var wrapper = JsonSerializer.Deserialize<GeminiIaProvider.FileChangesWrapper>(text, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });

@@ -177,6 +177,44 @@ class _AiSettingsDialogState extends State<AiSettingsDialog> {
                 const SizedBox(height: 16),
                 if (_provider == 'OpenAI') ...[
                   const Text(
+                    'Plantilla Rápida de Servicio',
+                    style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ActionChip(
+                        avatar: const Icon(Icons.bolt, size: 16, color: Colors.amber),
+                        label: const Text('OpenCode / OpenGO', style: TextStyle(color: Colors.white, fontSize: 12)),
+                        backgroundColor: const Color(0xFF6C5CE7).withOpacity(0.3),
+                        side: const BorderSide(color: Color(0xFF6C5CE7)),
+                        onPressed: () {
+                          setState(() {
+                            _baseUrlController.text = 'https://opencode.ai/v1';
+                            if (_modelController.text.isEmpty || _modelController.text == 'gpt-4o-mini') {
+                              _modelController.text = 'opencode-go';
+                            }
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        avatar: const Icon(Icons.api, size: 16, color: Colors.greenAccent),
+                        label: const Text('OpenAI Oficial', style: TextStyle(color: Colors.white, fontSize: 12)),
+                        backgroundColor: Colors.green.withOpacity(0.2),
+                        side: const BorderSide(color: Colors.green),
+                        onPressed: () {
+                          setState(() {
+                            _baseUrlController.text = 'https://api.openai.com/v1';
+                            _modelController.text = 'gpt-4o-mini';
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
                     'API Key (OpenAI / OpenGO / OpenRouter)',
                     style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
                   ),

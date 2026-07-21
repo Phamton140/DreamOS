@@ -334,7 +334,7 @@ No agregues explicaciones fuera del JSON. Escribe todo el código dentro de 'new
             return sb.ToString();
         }
 
-        private class FileChangesWrapper
+        public class FileChangesWrapper
         {
             [JsonPropertyName("changes")]
             public List<FileChange> Changes { get; set; } = new();
