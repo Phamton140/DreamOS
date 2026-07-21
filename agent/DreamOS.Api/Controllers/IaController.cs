@@ -42,7 +42,18 @@ namespace DreamOS.Api.Controllers
         public IActionResult GetSettings()
         {
             var collection = _dbContext.Database.GetCollection<AiSettings>("ai_settings");
-            var settings = collection.FindById("default") ?? new AiSettings();
+            var settings = collection.FindById("default");
+            if (settings == null)
+            {
+                settings = new AiSettings
+                {
+                    Provider = "OpenAI",
+                    ApiKey = "ollama",
+                    BaseUrl = "http://localhost:11434/v1",
+                    Model = "qwen2.5-coder:7b"
+                };
+                collection.Insert(settings);
+            }
             // Ocultar parcialmente la API key por seguridad al retornarla al cliente
             var safeSettings = new
             {

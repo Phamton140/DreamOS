@@ -82,7 +82,11 @@ namespace DreamOS.Infrastructure.Services
                 {
                     throw new InvalidOperationException("Saldo insuficiente en tu cuenta de OpenCode/OpenGO. Por favor recarga tus créditos en opencode.ai o selecciona Google Gemini en los Ajustes (🧠).");
                 }
-                throw new InvalidOperationException($"Error en API de OpenCode/OpenAI ({response.StatusCode}): {errorText}");
+                if (errorText.Contains("model") && errorText.Contains("not found"))
+                {
+                    throw new InvalidOperationException($"El modelo '{model}' no fue encontrado en Ollama. Asegúrate de incluir la etiqueta como '{model}:7b' en los Ajustes de IA (🧠).");
+                }
+                throw new InvalidOperationException($"Error en servicio de IA ({response.StatusCode}): {errorText}");
             }
 
             var responseJson = await response.Content.ReadAsStringAsync();

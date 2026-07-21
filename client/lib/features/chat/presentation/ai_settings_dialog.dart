@@ -194,7 +194,7 @@ class _AiSettingsDialogState extends State<AiSettingsDialog> {
                           setState(() {
                             _provider = 'OpenAI';
                             _baseUrlController.text = 'http://localhost:11434/v1';
-                            _modelController.text = 'qwen2.5-coder';
+                            _modelController.text = 'qwen2.5-coder:7b';
                             if (_apiKeyController.text.isEmpty) {
                               _apiKeyController.text = 'ollama';
                             }
