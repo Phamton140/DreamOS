@@ -52,6 +52,10 @@ namespace DreamOS.Infrastructure.Services
             if (string.IsNullOrEmpty(apiKey)) apiKey = "ollama";
 
             var model = string.IsNullOrEmpty(settings.Model) ? "gpt-4o-mini" : settings.Model;
+            if (string.Equals(model, "qwen2.5-coder", StringComparison.OrdinalIgnoreCase))
+            {
+                model = "qwen2.5-coder:7b";
+            }
             var url = $"{baseUrl}/chat/completions";
 
             var contextSummary = BuildContextSummary(context);
@@ -117,6 +121,10 @@ namespace DreamOS.Infrastructure.Services
             }
             if (string.IsNullOrEmpty(apiKey)) apiKey = "ollama";
             var model = string.IsNullOrEmpty(settings.Model) ? "gpt-4o-mini" : settings.Model;
+            if (string.Equals(model, "qwen2.5-coder", StringComparison.OrdinalIgnoreCase))
+            {
+                model = "qwen2.5-coder:7b";
+            }
             var url = $"{baseUrl}/chat/completions";
 
             var contextSummary = BuildContextSummary(context);
