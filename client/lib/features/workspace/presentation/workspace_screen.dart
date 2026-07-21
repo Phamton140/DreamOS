@@ -253,6 +253,7 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                             itemCount: _workspaces.length,
                             itemBuilder: (context, index) {
                                final ws = _workspaces[index] as Map<String, dynamic>;
+                              final id = (ws['Id'] ?? ws['id'] ?? '') as String;
                               final name = (ws['Name'] ?? ws['name'] ?? 'Workspace sin nombre') as String;
                               final path = (ws['ProjectRootPath'] ?? ws['projectRootPath'] ?? '') as String;
 
@@ -263,7 +264,41 @@ class _WorkspaceScreenState extends State<WorkspaceScreen> {
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                   title: Text(name, style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
                                   subtitle: Text(path, style: GoogleFonts.outfit(fontSize: 12)),
-                                  trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF00CEC9)),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (id.isNotEmpty)
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                          onPressed: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: const Text('Eliminar Workspace'),
+                                                content: Text('¿Deseas desvincular "$name"? (Tus archivos en el PC no sufrirán ningún daño).'),
+                                                actions: [
+                                                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+                                                  TextButton(
+                                                    onPressed: () async {
+                                                      Navigator.pop(context);
+                                                      try {
+                                                        await DI.apiClient.dio.delete('/api/workspaces/$id');
+                                                        _loadPcProfiles();
+                                                      } catch (e) {
+                                                        _showError('Fallo al eliminar workspace: $e');
+                                                      }
+                                                    },
+                                                    child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+                                                  )
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                          tooltip: 'Eliminar Workspace',
+                                        ),
+                                      const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF00CEC9)),
+                                    ],
+                                  ),
                                   onTap: () {
                                     Navigator.push(
                                       context,
