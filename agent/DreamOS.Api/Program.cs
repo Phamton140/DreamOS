@@ -42,8 +42,10 @@ builder.Services.AddTransient<PluginService>();
 
 // Registrar IA y Almacenamiento
 builder.Services.AddTransient<GeminiIaProvider>();
+builder.Services.AddTransient<OpenAiIaProvider>();
 builder.Services.AddTransient<OllamaIaProvider>();
-builder.Services.AddTransient<IIaProvider, IaService>();
+builder.Services.AddTransient<IaProviderFactory>();
+builder.Services.AddTransient<IIaProvider>(sp => sp.GetRequiredService<IaProviderFactory>().GetActiveProvider());
 
 builder.Services.AddTransient<GoogleDriveStorageProvider>();
 builder.Services.AddTransient<IStorageProvider, StorageService>();

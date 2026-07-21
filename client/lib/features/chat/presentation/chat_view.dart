@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../../core/di/injection.dart';
+import '../../../core/network/api_client.dart';
+import 'ai_settings_dialog.dart';
 
 class ChatView extends StatefulWidget {
   final String projectRoot;
@@ -206,6 +208,16 @@ class _ChatViewState extends State<ChatView> {
       appBar: AppBar(
         title: const Text('Asistente de IA (Remoto)'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.psychology_outlined, color: Color(0xFFA29BFE)),
+            tooltip: 'Configurar IA / Proveedores',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AiSettingsDialog(apiClient: DI.apiClient),
+              );
+            },
+          ),
           // Selector de modo
           Row(
             children: [

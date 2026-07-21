@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using DreamOS.Core.Entities;
 using DreamOS.Core.Interfaces;
 using DreamOS.Core.Models;
+using DreamOS.Infrastructure.Data;
+using DreamOS.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,21 +17,64 @@ namespace DreamOS.Api.Controllers
     [Route("api/[controller]")]
     public class IaController : ControllerBase
     {
-        private readonly IIaProvider _iaProvider;
+        private readonly IaProviderFactory _providerFactory;
         private readonly IProjectIndexer _indexer;
         private readonly IFileService _fileService;
         private readonly IMemoryEngine _memoryEngine;
+        private readonly LiteDbContext _dbContext;
 
         public IaController(
-            IIaProvider iaProvider,
+            IaProviderFactory providerFactory,
             IProjectIndexer indexer,
             IFileService fileService,
-            IMemoryEngine memoryEngine)
+            IMemoryEngine memoryEngine,
+            LiteDbContext dbContext)
         {
-            _iaProvider = iaProvider;
+            _providerFactory = providerFactory;
             _indexer = indexer;
             _fileService = fileService;
             _memoryEngine = memoryEngine;
+            _dbContext = dbContext;
+        }
+
+        [HttpGet("settings")]
+        public IActionResult GetSettings()
+        {
+            var collection = _dbContext.Database.GetCollection<AiSettings>("ai_settings");
+            var settings = collection.FindById("default") ?? new AiSettings();
+            // Ocultar parcialmente la API key por seguridad al retornarla al cliente
+            var safeSettings = new
+            {
+                settings.Id,
+                settings.Provider,
+                ApiKey = MaskApiKey(settings.ApiKey),
+                HasApiKey = !string.IsNullOrEmpty(settings.ApiKey),
+                settings.BaseUrl,
+                settings.Model,
+                settings.UpdatedAt
+            };
+            return Ok(safeSettings);
+        }
+
+        [HttpPost("settings")]
+        public IActionResult SaveSettings([FromBody] AiSettings model)
+        {
+            var collection = _dbContext.Database.GetCollection<AiSettings>("ai_settings");
+            var existing = collection.FindById("default") ?? new AiSettings();
+
+            existing.Provider = model.Provider;
+            existing.BaseUrl = model.BaseUrl;
+            existing.Model = model.Model;
+            existing.UpdatedAt = DateTime.UtcNow;
+
+            // Si el usuario envió una nueva API Key no enmascarada, la actualizamos
+            if (!string.IsNullOrEmpty(model.ApiKey) && !model.ApiKey.Contains("****"))
+            {
+                existing.ApiKey = model.ApiKey;
+            }
+
+            collection.Upsert(existing);
+            return Ok(new { Message = "Ajustes de IA guardados correctamente.", Settings = existing });
         }
 
         [HttpPost("ask")]
@@ -42,7 +88,8 @@ namespace DreamOS.Api.Controllers
             try
             {
                 var context = await _indexer.IndexProjectAsync(request.ProjectRoot);
-                var answer = await _iaProvider.AskAsync(request.Prompt, context);
+                var provider = _providerFactory.GetActiveProvider();
+                var answer = await provider.AskAsync(request.Prompt, context);
                 return Ok(new { Answer = answer });
             }
             catch (Exception ex)
@@ -62,12 +109,9 @@ namespace DreamOS.Api.Controllers
             try
             {
                 var context = await _indexer.IndexProjectAsync(request.ProjectRoot);
-                
-                // Si la IA necesita inferir los archivos, pasamos una lista vacía de objetivos
                 var targets = request.TargetFiles ?? new List<string>();
-                
-                // Si hay archivos en la memoria relacionados, la IA los recibirá en el contexto
-                var changes = await _iaProvider.ModifyProjectAsync(request.Prompt, context, targets);
+                var provider = _providerFactory.GetActiveProvider();
+                var changes = await provider.ModifyProjectAsync(request.Prompt, context, targets);
                 return Ok(changes);
             }
             catch (Exception ex)
@@ -100,7 +144,6 @@ namespace DreamOS.Api.Controllers
                     }
                     else // Create o Modify
                     {
-                        // Copia de seguridad antes de modificar
                         if (System.IO.File.Exists(fullPath))
                         {
                             var backupPath = fullPath + ".bak";
@@ -108,11 +151,8 @@ namespace DreamOS.Api.Controllers
                         }
 
                         await _fileService.WriteFileAsync(fullPath, change.NewContent);
-                        
-                        // Grabar en memoria el propósito de este archivo modificado
                         var tag = string.IsNullOrEmpty(change.Description) ? "Modificado" : "IA_Edit";
                         await _memoryEngine.LearnAsync(request.ProjectRoot, tag, change.FilePath, change.Description);
-                        
                         appliedChanges.Add($"{change.FilePath} ({change.Action})");
                     }
                 }
@@ -127,6 +167,13 @@ namespace DreamOS.Api.Controllers
             {
                 return StatusCode(500, $"Error al aplicar cambios: {ex.Message}");
             }
+        }
+
+        private static string MaskApiKey(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return "";
+            if (key.Length <= 8) return "********";
+            return key.Substring(0, 4) + "****" + key.Substring(key.Length - 4);
         }
     }
 

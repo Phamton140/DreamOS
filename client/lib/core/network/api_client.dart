@@ -29,6 +29,14 @@ class ApiClient {
   String get baseUrl => _baseUrl;
   Dio get dio => _dio;
 
+  Future<Response<T>> get<T>(String path, {Map<String, dynamic>? queryParameters, Options? options}) {
+    return _dio.get<T>(path, queryParameters: queryParameters, options: options);
+  }
+
+  Future<Response<T>> post<T>(String path, {dynamic data, Map<String, dynamic>? queryParameters, Options? options}) {
+    return _dio.post<T>(path, data: data, queryParameters: queryParameters, options: options);
+  }
+
   /// Inicializa la base url probando primero la LAN y luego haciendo fallback al Túnel
   Future<bool> initializeConnection(Map<String, dynamic> pcProfile) async {
     final lanUrl = pcProfile['LanUrl'] as String;

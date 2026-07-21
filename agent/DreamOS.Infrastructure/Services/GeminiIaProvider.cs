@@ -183,7 +183,7 @@ Debes devolver ÚNICAMENTE un objeto JSON con el siguiente esquema:
     }
   ]
 }
-No agregues explicaciones fuera del JSON.";
+No agregues explicaciones fuera del JSON. Escribe todo el código dentro de 'newContent' como un solo string continuo sin concatenaciones de texto usando '+'.";
 
             var userPrompt = $"Contexto del Proyecto:\n{contextSummary}\n\n" +
                               $"Contenido actual de los archivos:\n{sbFiles}\n\n" +
@@ -289,6 +289,9 @@ No agregues explicaciones fuera del JSON.";
                 {
                     text = text.Substring(firstBrace, lastBrace - firstBrace + 1);
                 }
+
+                // Limpiar concatenaciones de cadenas estilo C# (" + ") que Gemini a veces inserta en JSONs largos
+                text = System.Text.RegularExpressions.Regex.Replace(text, @"\""\s*\+\s*\""", "");
 
                 // Deserializar lista de cambios
                 var wrapper = System.Text.Json.JsonSerializer.Deserialize<FileChangesWrapper>(text, new JsonSerializerOptions
