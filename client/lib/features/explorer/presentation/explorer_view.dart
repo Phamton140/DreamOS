@@ -105,6 +105,96 @@ class _ExplorerViewState extends State<ExplorerView> {
     }
   }
 
+  void _showCreateFileDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Nuevo Archivo', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Ejemplo: utils.dart',
+            labelText: 'Nombre del archivo',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.pop(context);
+                final separator = _currentPath.contains('\\') ? '\\' : '/';
+                final fullPath = '$_currentPath$separator$name';
+                setState(() => _isLoading = true);
+                try {
+                  await DI.apiClient.dio.post('/api/files/write', data: {
+                    'Path': fullPath,
+                    'Content': '',
+                  });
+                  await _loadDirectoryContent();
+                  widget.onFileSelected(fullPath, '');
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Fallo al crear archivo: $e'), backgroundColor: Colors.red),
+                  );
+                  setState(() => _isLoading = false);
+                }
+              }
+            },
+            child: const Text('Crear'),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showCreateFolderDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Nueva Carpeta', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Ejemplo: models',
+            labelText: 'Nombre de la carpeta',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                Navigator.pop(context);
+                final separator = _currentPath.contains('\\') ? '\\' : '/';
+                final fullPath = '$_currentPath$separator$name';
+                setState(() => _isLoading = true);
+                try {
+                  await DI.apiClient.dio.post('/api/files/create-directory', data: {
+                    'Path': fullPath,
+                  });
+                  await _loadDirectoryContent();
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Fallo al crear carpeta: $e'), backgroundColor: Colors.red),
+                  );
+                  setState(() => _isLoading = false);
+                }
+              }
+            },
+            child: const Text('Crear'),
+          )
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isAtRoot = _currentPath == widget.projectRoot;
@@ -119,6 +209,18 @@ class _ExplorerViewState extends State<ExplorerView> {
                 icon: const Icon(Icons.arrow_back),
                 onPressed: _navigateUp,
               ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.create_new_folder_outlined),
+            tooltip: 'Nueva Carpeta',
+            onPressed: _showCreateFolderDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.note_add_outlined),
+            tooltip: 'Nuevo Archivo',
+            onPressed: _showCreateFileDialog,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
