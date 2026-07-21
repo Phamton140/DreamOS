@@ -95,7 +95,7 @@ class _ChatViewState extends State<ChatView> {
           _progressStatus = '🔍 Escaneando estructura de archivos del proyecto...';
         } else if (sec < 12) {
           _progressValue = 0.30 + ((sec - 4) * 0.03);
-          _progressStatus = '🧠 Procesando prompt con el modelo Gemini 2.5...';
+          _progressStatus = '🧠 Procesando prompt con el modelo $_activeModelName...';
         } else if (sec < 25) {
           _progressValue = 0.55 + ((sec - 12) * 0.02);
           _progressStatus = '✨ Generando modificaciones de código e inyectando parches...';
