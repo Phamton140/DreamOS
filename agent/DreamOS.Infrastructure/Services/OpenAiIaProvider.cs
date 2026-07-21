@@ -75,7 +75,11 @@ namespace DreamOS.Infrastructure.Services
             if (!response.IsSuccessStatusCode)
             {
                 var errorText = await response.Content.ReadAsStringAsync();
-                throw new Exception($"OpenAI/OpenGO API Error ({response.StatusCode}): {errorText}");
+                if (errorText.Contains("CreditsError") || errorText.Contains("Insufficient balance"))
+                {
+                    throw new InvalidOperationException("Saldo insuficiente en tu cuenta de OpenCode/OpenGO. Por favor recarga tus créditos en opencode.ai o selecciona Google Gemini en los Ajustes (🧠).");
+                }
+                throw new InvalidOperationException($"Error en API de OpenCode/OpenAI ({response.StatusCode}): {errorText}");
             }
 
             var responseJson = await response.Content.ReadAsStringAsync();
@@ -187,7 +191,11 @@ Importante: El campo 'newContent' debe contener todo el código fuente listo par
             if (!response.IsSuccessStatusCode)
             {
                 var errorText = await response.Content.ReadAsStringAsync();
-                throw new Exception($"OpenAI/OpenGO API Error ({response.StatusCode}): {errorText}");
+                if (errorText.Contains("CreditsError") || errorText.Contains("Insufficient balance"))
+                {
+                    throw new InvalidOperationException("Saldo insuficiente en tu cuenta de OpenCode/OpenGO. Por favor recarga tus créditos en opencode.ai o selecciona Google Gemini en los Ajustes (🧠).");
+                }
+                throw new InvalidOperationException($"Error en API de OpenCode/OpenAI ({response.StatusCode}): {errorText}");
             }
 
             var responseJson = await response.Content.ReadAsStringAsync();
