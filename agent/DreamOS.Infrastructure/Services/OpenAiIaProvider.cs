@@ -42,12 +42,15 @@ namespace DreamOS.Infrastructure.Services
                 ? settings.ApiKey 
                 : Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "";
 
-            if (string.IsNullOrEmpty(apiKey))
-            {
-                throw new InvalidOperationException("API Key de OpenAI/OpenGO no configurada en Ajustes de IA.");
-            }
-
             var baseUrl = string.IsNullOrEmpty(settings.BaseUrl) ? "https://api.openai.com/v1" : settings.BaseUrl.TrimEnd('/');
+            var isLocal = baseUrl.Contains("localhost") || baseUrl.Contains("127.0.0.1");
+
+            if (string.IsNullOrEmpty(apiKey) && !isLocal)
+            {
+                throw new InvalidOperationException("API Key no configurada en Ajustes de IA.");
+            }
+            if (string.IsNullOrEmpty(apiKey)) apiKey = "ollama";
+
             var model = string.IsNullOrEmpty(settings.Model) ? "gpt-4o-mini" : settings.Model;
             var url = $"{baseUrl}/chat/completions";
 
@@ -101,12 +104,14 @@ namespace DreamOS.Infrastructure.Services
                 ? settings.ApiKey 
                 : Environment.GetEnvironmentVariable("OPENAI_API_KEY") ?? "";
 
-            if (string.IsNullOrEmpty(apiKey))
+            var baseUrl = string.IsNullOrEmpty(settings.BaseUrl) ? "https://api.openai.com/v1" : settings.BaseUrl.TrimEnd('/');
+            var isLocal = baseUrl.Contains("localhost") || baseUrl.Contains("127.0.0.1");
+
+            if (string.IsNullOrEmpty(apiKey) && !isLocal)
             {
                 throw new InvalidOperationException("API Key de OpenAI/OpenGO no configurada en Ajustes de IA.");
             }
-
-            var baseUrl = string.IsNullOrEmpty(settings.BaseUrl) ? "https://api.openai.com/v1" : settings.BaseUrl.TrimEnd('/');
+            if (string.IsNullOrEmpty(apiKey)) apiKey = "ollama";
             var model = string.IsNullOrEmpty(settings.Model) ? "gpt-4o-mini" : settings.Model;
             var url = $"{baseUrl}/chat/completions";
 

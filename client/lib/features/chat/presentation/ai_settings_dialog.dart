@@ -186,6 +186,22 @@ class _AiSettingsDialogState extends State<AiSettingsDialog> {
                     runSpacing: 8,
                     children: [
                       ActionChip(
+                        avatar: const Icon(Icons.computer, size: 16, color: Colors.cyanAccent),
+                        label: const Text('🦙 Ollama Local (PC)', style: TextStyle(color: Colors.white, fontSize: 12)),
+                        backgroundColor: Colors.cyan.withOpacity(0.2),
+                        side: const BorderSide(color: Colors.cyan),
+                        onPressed: () {
+                          setState(() {
+                            _provider = 'OpenAI';
+                            _baseUrlController.text = 'http://localhost:11434/v1';
+                            _modelController.text = 'qwen2.5-coder';
+                            if (_apiKeyController.text.isEmpty) {
+                              _apiKeyController.text = 'ollama';
+                            }
+                          });
+                        },
+                      ),
+                      ActionChip(
                         avatar: const Icon(Icons.bolt, size: 16, color: Colors.amber),
                         label: const Text('OpenCode / OpenGO', style: TextStyle(color: Colors.white, fontSize: 12)),
                         backgroundColor: const Color(0xFF6C5CE7).withOpacity(0.3),
