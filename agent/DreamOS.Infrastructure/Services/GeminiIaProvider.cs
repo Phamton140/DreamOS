@@ -85,7 +85,7 @@ namespace DreamOS.Infrastructure.Services
                 {
                     parts = new[]
                     {
-                        new { text = "Eres un asistente de desarrollo IA de élite llamado DreamOS. Ayudas al usuario a entender y mantener su proyecto de software." }
+                        new { text = "Eres un asistente conversacional de desarrollo de software en DreamOS Dev. Responde de forma concisa, directa y natural al saludo o consulta del usuario. No hagas resúmenes del proyecto ni listes archivos a menos que el usuario lo solicite explícitamente." }
                     }
                 }
             };

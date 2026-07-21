@@ -96,6 +96,7 @@ namespace DreamOS.Api.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"\n[ERROR 500 ASK CONTROLLER]: {ex.Message}\n{ex.StackTrace}\n");
                 return StatusCode(500, $"Error en IA: {ex.Message}");
             }
         }

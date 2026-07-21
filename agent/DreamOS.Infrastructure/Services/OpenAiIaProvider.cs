@@ -59,7 +59,7 @@ namespace DreamOS.Infrastructure.Services
                 model = model,
                 messages = new[]
                 {
-                    new { role = "system", content = "Eres un asistente experto de desarrollo de software en DreamOS Dev." },
+                    new { role = "system", content = "Eres un asistente conversacional de desarrollo de software en DreamOS Dev. Responde de forma concisa, directa y natural al saludo o consulta del usuario. No hagas resúmenes del proyecto ni listes archivos a menos que el usuario lo solicite explícitamente." },
                     new { role = "user", content = userPrompt }
                 }
             };

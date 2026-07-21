@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../../core/di/injection.dart';
@@ -36,16 +37,37 @@ class _ChatViewState extends State<ChatView> {
   String _progressStatus = 'Iniciando análisis...';
   int _elapsedSeconds = 0;
 
+  // Variables de modelo activo
+  String _activeModelName = 'Gemini 2.5';
+
   @override
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
+    _loadActiveModelName();
     
     // Mensaje de bienvenida
     _messages.add({
       'sender': 'ai',
       'text': '¡Hola! Soy tu agente autónomo DreamOS. ¿En qué puedo ayudarte en este proyecto hoy?'
     });
+  }
+
+  Future<void> _loadActiveModelName() async {
+    try {
+      final response = await DI.apiClient.get('/api/ia/settings');
+      if (response.data != null) {
+        final provider = response.data['provider'] ?? 'Gemini';
+        final model = response.data['model'] ?? '';
+        setState(() {
+          if (provider == 'Gemini') {
+            _activeModelName = 'Gemini 2.5';
+          } else {
+            _activeModelName = model.isNotEmpty ? model : 'OpenAI';
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -206,16 +228,19 @@ class _ChatViewState extends State<ChatView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Asistente de IA (Remoto)'),
+        title: Text('Asistente IA ($_activeModelName)'),
         actions: [
           IconButton(
             icon: const Icon(Icons.psychology_outlined, color: Color(0xFFA29BFE)),
             tooltip: 'Configurar IA / Proveedores',
-            onPressed: () {
-              showDialog(
+            onPressed: () async {
+              final updated = await showDialog<bool>(
                 context: context,
                 builder: (context) => AiSettingsDialog(apiClient: DI.apiClient),
               );
+              if (updated == true) {
+                _loadActiveModelName();
+              }
             },
           ),
           // Selector de modo
@@ -264,9 +289,35 @@ class _ChatViewState extends State<ChatView> {
                         bottomRight: isUser ? Radius.zero : const Radius.circular(12),
                       ),
                     ),
-                    child: Text(
-                      msg['text'] ?? '',
-                      style: GoogleFonts.outfit(fontSize: 15, color: Colors.white),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SelectableText(
+                          msg['text'] ?? '',
+                          style: GoogleFonts.outfit(fontSize: 15, color: Colors.white),
+                        ),
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: InkWell(
+                            onTap: () {
+                              final textToCopy = msg['text'] ?? '';
+                              Clipboard.setData(ClipboardData(text: textToCopy));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('📋 Mensaje copiado al portapapeles'),
+                                  duration: Duration(seconds: 1),
+                                  backgroundColor: Color(0xFF6C5CE7),
+                                ),
+                              );
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.only(top: 2, left: 4),
+                              child: Icon(Icons.copy_rounded, size: 14, color: Colors.white54),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );

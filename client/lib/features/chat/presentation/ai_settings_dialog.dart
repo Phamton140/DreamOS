@@ -192,10 +192,8 @@ class _AiSettingsDialogState extends State<AiSettingsDialog> {
                         side: const BorderSide(color: Color(0xFF6C5CE7)),
                         onPressed: () {
                           setState(() {
-                            _baseUrlController.text = 'https://opencode.ai/v1';
-                            if (_modelController.text.isEmpty || _modelController.text == 'gpt-4o-mini') {
-                              _modelController.text = 'opencode-go';
-                            }
+                            _baseUrlController.text = 'https://opencode.ai/zen/go/v1';
+                            _modelController.text = 'deepseek-v4-pro';
                           });
                         },
                       ),
