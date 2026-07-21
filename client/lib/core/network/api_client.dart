@@ -7,8 +7,8 @@ class ApiClient {
   String _baseUrl = '';
 
   ApiClient() {
-    _dio.options.connectTimeout = const Duration(seconds: 15);
-    _dio.options.receiveTimeout = const Duration(seconds: 120);
+    _dio.options.connectTimeout = const Duration(seconds: 20);
+    _dio.options.receiveTimeout = const Duration(seconds: 300);
     
     // Interceptor para agregar token JWT a todas las peticiones
     _dio.interceptors.add(InterceptorsWrapper(

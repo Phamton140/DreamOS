@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -27,6 +28,12 @@ class _ChatViewState extends State<ChatView> {
   bool _isLoading = false;
   bool _modifyMode = false; // Toggle para Preguntar vs Modificar Código
 
+  // Variables de seguimiento de progreso
+  Timer? _progressTimer;
+  double _progressValue = 0.0;
+  String _progressStatus = 'Iniciando análisis...';
+  int _elapsedSeconds = 0;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +46,56 @@ class _ChatViewState extends State<ChatView> {
     });
   }
 
+  @override
+  void dispose() {
+    _progressTimer?.cancel();
+    _inputController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _startProgressTracking() {
+    _progressValue = 0.05;
+    _progressStatus = '🔍 Escaneando archivos y contexto del workspace...';
+    _elapsedSeconds = 0;
+    _progressTimer?.cancel();
+
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      if (!mounted) return;
+      setState(() {
+        _elapsedSeconds = timer.tick ~/ 2;
+        final sec = _elapsedSeconds;
+
+        if (sec < 4) {
+          _progressValue = 0.10 + (sec * 0.05);
+          _progressStatus = '🔍 Escaneando estructura de archivos del proyecto...';
+        } else if (sec < 12) {
+          _progressValue = 0.30 + ((sec - 4) * 0.03);
+          _progressStatus = '🧠 Procesando prompt con el modelo Gemini 2.5...';
+        } else if (sec < 25) {
+          _progressValue = 0.55 + ((sec - 12) * 0.02);
+          _progressStatus = '✨ Generando modificaciones de código e inyectando parches...';
+        } else if (sec < 45) {
+          _progressValue = 0.80 + ((sec - 25) * 0.005);
+          _progressStatus = '⚡ Validando sintaxis y preparando revisión visual de Diffs...';
+        } else {
+          _progressValue = 0.92;
+          _progressStatus = '⏳ Finalizando procesamiento de cambios extensos...';
+        }
+      });
+    });
+  }
+
+  void _stopProgressTracking({bool isSuccess = true}) {
+    _progressTimer?.cancel();
+    if (isSuccess) {
+      setState(() {
+        _progressValue = 1.0;
+        _progressStatus = '✅ ¡Procesamiento completado con éxito!';
+      });
+    }
+  }
+
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isLoading) return;
@@ -48,6 +105,7 @@ class _ChatViewState extends State<ChatView> {
       _messages.add({'sender': 'user', 'text': text});
       _isLoading = true;
     });
+    _startProgressTracking();
     _scrollToBottom();
 
     try {
@@ -62,6 +120,7 @@ class _ChatViewState extends State<ChatView> {
           },
         );
 
+        _stopProgressTracking(isSuccess: true);
         final changesList = response.data as List;
         if (changesList.isNotEmpty) {
           setState(() {
@@ -89,12 +148,14 @@ class _ChatViewState extends State<ChatView> {
           },
         );
 
+        _stopProgressTracking(isSuccess: true);
         final answer = (response.data['Answer'] ?? response.data['answer'] ?? '') as String;
         setState(() {
           _messages.add({'sender': 'ai', 'text': answer});
         });
       }
     } catch (e) {
+      _stopProgressTracking(isSuccess: false);
       setState(() {
         _messages.add({
           'sender': 'ai',
@@ -201,9 +262,58 @@ class _ChatViewState extends State<ChatView> {
             ),
           ),
           if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF151528),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF00CEC9).withOpacity(0.3)),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00CEC9).withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _progressStatus,
+                          style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF00CEC9)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '⏱️ ${_elapsedSeconds}s / máx 5m',
+                        style: GoogleFonts.firaCode(fontSize: 11, color: const Color(0xFFA0A0C0)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: _progressValue,
+                      minHeight: 8,
+                      backgroundColor: const Color(0xFF1D1D30),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00CEC9)),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${(_progressValue * 100).toInt()}% completado',
+                    style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFFA0A0C0)),
+                  ),
+                ],
+              ),
             ),
           // Área de Entrada de texto
           Container(
