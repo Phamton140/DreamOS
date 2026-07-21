@@ -171,8 +171,10 @@ class _ChatViewState extends State<ChatView> {
         });
       } else {
         String errorMsg = e.toString();
-        if (e is DioException && e.response?.data != null) {
-          if (e.response?.data is Map && e.response?.data['message'] != null) {
+        if (e is DioException) {
+          if (e.response?.statusCode == 524) {
+            errorMsg = '⌛ El túnel público de Cloudflare cerró la conexión por inactividad tras 100 segundos (Error 524).\n\n💡 Para peticiones extensas en tu PC, conecta tu teléfono al mismo Wi-Fi que la computadora para usar la red local (LAN directo), la cual no tiene ningún límite de proxy.';
+          } else if (e.response?.data != null && e.response?.data is Map && e.response?.data['message'] != null) {
             errorMsg = e.response!.data['message'].toString();
           }
         }

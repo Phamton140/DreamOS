@@ -164,27 +164,29 @@ namespace DreamOS.Infrastructure.Services
                     }
                 }
             }
-
             var systemPrompt = @"Eres un agente autónomo de desarrollo en DreamOS Dev.
 Analiza la solicitud y los archivos provistos. Debes generar las modificaciones necesarias.
-Debes devolver ÚNICAMENTE un objeto JSON estructurado con el siguiente esquema exacto:
+Debes devolver ÚNICAMENTE un objeto JSON estructurado con un arreglo en la propiedad 'changes' con el siguiente esquema exacto:
 {
   ""changes"": [
     {
       ""filePath"": ""ruta/relativa/al/archivo"",
-      ""action"": ""Create"" o ""Modify"" o ""Delete"",
-      ""newContent"": ""Contenido completo final del archivo. Para Delete puede ir vacío."",
+      ""action"": ""Modify"",
+      ""newContent"": ""Contenido completo final del archivo"",
       ""description"": ""Breve explicación del cambio realizado""
     }
   ]
 }
-Importante: El campo 'newContent' debe contener todo el código fuente listo para reemplazar. Asegúrate de escapar correctamente caracteres especiales para mantener un JSON válido.";
+REGLAS STRICTAS:
+1. 'changes' DEBE SER UN ARREGLO DE OBJETOS [ {...}, {...} ].
+2. Cada objeto debe tener 'filePath', 'action' ('Create', 'Modify' o 'Delete'), 'newContent' y 'description'.
+3. No devuelvas objetos o mapas dentro de 'changes', únicamente la lista o arreglo indicado.";
 
             var userPrompt = $"Contexto del Proyecto:\n{contextSummary}\n\n" +
                               $"Contenido actual de los archivos:\n{sbFiles}\n\n" +
                               $"Archivos objetivos a editar: {fileListStr}\n\n" +
                               $"Instrucción del usuario:\n{prompt}\n\n" +
-                              $"Genera el JSON estructurado con la propiedad 'changes'.";
+                              $"Genera el JSON estructurado con la propiedad 'changes' como un arreglo [].";
 
             var requestBody = new
             {
@@ -212,7 +214,11 @@ Importante: El campo 'newContent' debe contener todo el código fuente listo par
                 {
                     throw new InvalidOperationException("Saldo insuficiente en tu cuenta de OpenCode/OpenGO. Por favor recarga tus créditos en opencode.ai o selecciona Google Gemini en los Ajustes (🧠).");
                 }
-                throw new InvalidOperationException($"Error en API de OpenCode/OpenAI ({response.StatusCode}): {errorText}");
+                if (errorText.Contains("model") && errorText.Contains("not found"))
+                {
+                    throw new InvalidOperationException($"El modelo '{model}' no fue encontrado en Ollama. Asegúrate de incluir la etiqueta como '{model}:7b' en los Ajustes de IA (🧠).");
+                }
+                throw new InvalidOperationException($"Error en servicio de IA ({response.StatusCode}): {errorText}");
             }
 
             var responseJson = await response.Content.ReadAsStringAsync();
@@ -247,16 +253,67 @@ Importante: El campo 'newContent' debe contener todo el código fuente listo par
 
                 text = Regex.Replace(text, @"\""\s*\+\s*\""", "");
 
-                var wrapper = JsonSerializer.Deserialize<GeminiIaProvider.FileChangesWrapper>(text, new JsonSerializerOptions
+                // Intentar deserialización directa
+                try
                 {
-                    PropertyNameCaseInsensitive = true
-                });
+                    var wrapper = JsonSerializer.Deserialize<GeminiIaProvider.FileChangesWrapper>(text, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+                    if (wrapper?.Changes != null && wrapper.Changes.Count > 0)
+                    {
+                        return wrapper.Changes;
+                    }
+                }
+                catch
+                {
+                    // Ignorar para intentar parseo de emergencia
+                }
 
-                return wrapper?.Changes ?? new List<FileChange>();
+                // Fallback de parseo flexible en caso de respuestas no estrictas de modelos locales
+                var resultList = new List<FileChange>();
+                using var parsedDoc = JsonDocument.Parse(text);
+                if (parsedDoc.RootElement.TryGetProperty("changes", out var changesProp))
+                {
+                    if (changesProp.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in changesProp.EnumerateArray())
+                        {
+                            resultList.Add(new FileChange
+                            {
+                                FilePath = item.TryGetProperty("filePath", out var fp) ? fp.GetString() ?? "" : "",
+                                Action = item.TryGetProperty("action", out var ac) ? ac.GetString() ?? "Modify" : "Modify",
+                                NewContent = item.TryGetProperty("newContent", out var nc) ? nc.GetString() ?? "" : (item.TryGetProperty("replacement", out var rep) ? rep.GetString() ?? "" : ""),
+                                Description = item.TryGetProperty("description", out var desc) ? desc.GetString() ?? "Modificación realizada por IA" : "Modificación realizada por IA"
+                            });
+                        }
+                    }
+                    else if (changesProp.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var fileProp in changesProp.EnumerateObject())
+                        {
+                            var pathKey = fileProp.Name;
+                            if (fileProp.Value.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var item in fileProp.Value.EnumerateArray())
+                                {
+                                    resultList.Add(new FileChange
+                                    {
+                                        FilePath = pathKey,
+                                        Action = item.TryGetProperty("action", out var ac) ? ac.GetString() ?? "Modify" : "Modify",
+                                        NewContent = item.TryGetProperty("newContent", out var nc) ? nc.GetString() ?? "" : (item.TryGetProperty("replacement", out var rep) ? rep.GetString() ?? "" : ""),
+                                        Description = item.TryGetProperty("description", out var desc) ? desc.GetString() ?? "Modificación de archivo" : "Modificación de archivo"
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                return resultList;
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error parseando respuesta de OpenAI/OpenGO: {ex.Message}. Respuesta: {responseJson}");
+                throw new Exception($"Error procesando modificaciones del modelo: {ex.Message}");
             }
         }
 

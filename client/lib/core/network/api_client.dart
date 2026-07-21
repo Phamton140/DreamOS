@@ -43,11 +43,11 @@ class ApiClient {
     final lanUrl = pcProfile['LanUrl'] as String;
     final tunnelUrl = pcProfile['TunnelUrl'] as String;
 
-    // 1. Probar LAN (Rápido, 1.2s timeout)
+    // 1. Probar LAN (3.5s timeout para detección confiable en Wi-Fi)
     try {
       final tempDio = Dio(BaseOptions(
-        connectTimeout: const Duration(milliseconds: 1200),
-        receiveTimeout: const Duration(milliseconds: 1200),
+        connectTimeout: const Duration(milliseconds: 3500),
+        receiveTimeout: const Duration(milliseconds: 3500),
       ));
       
       // Intentamos un endpoint libre de la API (ej: el endpoint de QR/Pairing no bloqueado)
