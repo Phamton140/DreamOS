@@ -16,7 +16,14 @@ namespace DreamOS.Infrastructure.Repositories
         {
             _context = context;
             _collection = _context.Database.GetCollection<Workspace>("workspaces");
-            _collection.EnsureIndex(x => x.LastOpened);
+            try
+            {
+                _collection.EnsureIndex(x => x.Name);
+            }
+            catch
+            {
+                // Ignorar excepción de indexación LiteDB si la propiedad es compleja
+            }
         }
 
         public Task<Workspace?> GetByIdAsync(string id)

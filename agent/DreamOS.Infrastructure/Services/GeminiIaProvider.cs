@@ -22,6 +22,7 @@ namespace DreamOS.Infrastructure.Services
         public GeminiIaProvider(LiteDbContext dbContext)
         {
             _httpClient = new HttpClient();
+            _httpClient.Timeout = TimeSpan.FromMinutes(5);
             _dbContext = dbContext;
         }
 
@@ -215,14 +216,36 @@ No agregues explicaciones fuera del JSON.";
                 }
             };
 
-            var json = System.Text.Json.JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var jsonPayload = System.Text.Json.JsonSerializer.Serialize(requestBody);
+            
+            var primaryModel = GetModelName();
+            var modelsToTry = new List<string> { primaryModel, "gemini-1.5-flash", "gemini-2.0-flash-exp" };
+            
+            HttpResponseMessage? response = null;
+            string lastErrorText = "";
 
-            var response = await _httpClient.PostAsync(url, content);
-            if (!response.IsSuccessStatusCode)
+            foreach (var modelItem in modelsToTry.Distinct())
             {
-                var errorText = await response.Content.ReadAsStringAsync();
-                throw new Exception($"Gemini API Error: {response.StatusCode} - {errorText}");
+                var targetUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{modelItem}:generateContent?key={apiKey}";
+                try
+                {
+                    var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+                    response = await _httpClient.PostAsync(targetUrl, httpContent);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        break;
+                    }
+                    lastErrorText = await response.Content.ReadAsStringAsync();
+                }
+                catch (Exception ex)
+                {
+                    lastErrorText = ex.Message;
+                }
+            }
+
+            if (response == null || !response.IsSuccessStatusCode)
+            {
+                throw new Exception($"Gemini API Error: {lastErrorText}");
             }
 
             var responseJson = await response.Content.ReadAsStringAsync();
@@ -242,6 +265,31 @@ No agregues explicaciones fuera del JSON.";
                     return new List<FileChange>();
                 }
 
+                // Limpiar posibles bloques de código Markdown que Gemini suele agregar (```json ... ```)
+                text = text.Trim();
+                if (text.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
+                {
+                    text = text.Substring(7);
+                }
+                else if (text.StartsWith("```"))
+                {
+                    text = text.Substring(3);
+                }
+
+                if (text.EndsWith("```"))
+                {
+                    text = text.Substring(0, text.Length - 3);
+                }
+                text = text.Trim();
+
+                // Extraer únicamente el objeto JSON desde el primer '{' hasta el último '}'
+                var firstBrace = text.IndexOf('{');
+                var lastBrace = text.LastIndexOf('}');
+                if (firstBrace >= 0 && lastBrace > firstBrace)
+                {
+                    text = text.Substring(firstBrace, lastBrace - firstBrace + 1);
+                }
+
                 // Deserializar lista de cambios
                 var wrapper = System.Text.Json.JsonSerializer.Deserialize<FileChangesWrapper>(text, new JsonSerializerOptions
                 {
@@ -252,7 +300,7 @@ No agregues explicaciones fuera del JSON.";
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error parseando respuesta estructurada de la IA: {ex.Message}. Crudo: {responseJson}");
+                throw new Exception($"Error parseando respuesta estructurada de la IA: {ex.Message}. Respuesta bruta: {responseJson}");
             }
         }
 

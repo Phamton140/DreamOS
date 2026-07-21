@@ -99,19 +99,26 @@ namespace DreamOS.Infrastructure.Services
             }
 
             // .NET / C#
-            var hasCsFiles = Directory.GetFiles(projectPath, "*.cs", SearchOption.AllDirectories).Any();
-            var hasSln = Directory.GetFiles(projectPath, "*.sln", SearchOption.TopDirectoryOnly).Any();
-            if (hasCsFiles || hasSln)
+            try
             {
-                context.Technologies.Add(".NET");
-                context.Technologies.Add("C#");
-                
-                var csprojFiles = Directory.GetFiles(projectPath, "*.csproj", SearchOption.AllDirectories);
-                if (csprojFiles.Any())
+                var hasCsFiles = Directory.EnumerateFiles(projectPath, "*.cs", SearchOption.TopDirectoryOnly).Any();
+                var hasSln = Directory.EnumerateFiles(projectPath, "*.sln", SearchOption.TopDirectoryOnly).Any();
+                if (hasCsFiles || hasSln)
                 {
-                    context.KeyConfigurations["csproj"] = Path.GetFileName(csprojFiles[0]);
-                    context.ArchitectureType = "Clean Architecture / DDD (.NET)";
+                    context.Technologies.Add(".NET");
+                    context.Technologies.Add("C#");
+                    
+                    var csprojFiles = Directory.EnumerateFiles(projectPath, "*.csproj", SearchOption.TopDirectoryOnly).ToList();
+                    if (csprojFiles.Any())
+                    {
+                        context.KeyConfigurations["csproj"] = Path.GetFileName(csprojFiles[0]);
+                        context.ArchitectureType = "Clean Architecture / DDD (.NET)";
+                    }
                 }
+            }
+            catch
+            {
+                // Silenciar restricciones de permisos del sistema de archivos
             }
 
             // Entorno .env

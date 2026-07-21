@@ -72,6 +72,7 @@ namespace DreamOS.Api.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"\n[ERROR 500 IA CONTROLLER]: {ex.Message}\n{ex.StackTrace}\n");
                 return StatusCode(500, $"Error al planificar cambios: {ex.Message}");
             }
         }
