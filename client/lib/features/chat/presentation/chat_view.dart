@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -31,14 +32,19 @@ class _ChatViewState extends State<ChatView> {
   bool _isLoading = false;
   bool _modifyMode = false; // Toggle para Preguntar vs Modificar Código
 
-  // Variables de seguimiento de progreso
+  // Variables de seguimiento de tiempo real y cancelación
+  CancelToken? _cancelToken;
   Timer? _progressTimer;
-  double _progressValue = 0.0;
-  String _progressStatus = 'Iniciando análisis...';
   int _elapsedSeconds = 0;
 
   // Variables de modelo activo
   String _activeModelName = 'Gemini 2.5';
+
+  String _formatSeconds(int sec) {
+    final m = (sec ~/ 60).toString().padLeft(2, '0');
+    final s = (sec % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
 
   @override
   void initState() {
@@ -78,46 +84,19 @@ class _ChatViewState extends State<ChatView> {
     super.dispose();
   }
 
-  void _startProgressTracking() {
-    _progressValue = 0.05;
-    _progressStatus = '🔍 Escaneando archivos y contexto del workspace...';
+  void _startTimer() {
     _elapsedSeconds = 0;
     _progressTimer?.cancel();
-
-    _progressTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+    _progressTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       setState(() {
-        _elapsedSeconds = timer.tick ~/ 2;
-        final sec = _elapsedSeconds;
-
-        if (sec < 4) {
-          _progressValue = 0.10 + (sec * 0.05);
-          _progressStatus = '🔍 Escaneando estructura de archivos del proyecto...';
-        } else if (sec < 12) {
-          _progressValue = 0.30 + ((sec - 4) * 0.03);
-          _progressStatus = '🧠 Procesando prompt con el modelo $_activeModelName...';
-        } else if (sec < 25) {
-          _progressValue = 0.55 + ((sec - 12) * 0.02);
-          _progressStatus = '✨ Generando modificaciones de código e inyectando parches...';
-        } else if (sec < 45) {
-          _progressValue = 0.80 + ((sec - 25) * 0.005);
-          _progressStatus = '⚡ Validando sintaxis y preparando revisión visual de Diffs...';
-        } else {
-          _progressValue = 0.92;
-          _progressStatus = '⏳ Finalizando procesamiento de cambios extensos...';
-        }
+        _elapsedSeconds++;
       });
     });
   }
 
-  void _stopProgressTracking({bool isSuccess = true}) {
+  void _stopTimer() {
     _progressTimer?.cancel();
-    if (isSuccess) {
-      setState(() {
-        _progressValue = 1.0;
-        _progressStatus = '✅ ¡Procesamiento completado con éxito!';
-      });
-    }
   }
 
   Future<void> _sendMessage() async {
@@ -125,26 +104,29 @@ class _ChatViewState extends State<ChatView> {
     if (text.isEmpty || _isLoading) return;
 
     _inputController.clear();
+    _cancelToken = CancelToken();
+
     setState(() {
       _messages.add({'sender': 'user', 'text': text});
       _isLoading = true;
     });
-    _startProgressTracking();
+
+    _startTimer();
     _scrollToBottom();
 
     try {
       if (_modifyMode) {
-        // Enviar instrucción para planificar cambios en archivos
         final response = await DI.apiClient.dio.post(
           '/api/ia/modify-plan',
           data: {
             'Prompt': text,
             'ProjectRoot': widget.projectRoot,
-            'TargetFiles': [] // Dejamos que la IA infiera o use toda la base
+            'TargetFiles': []
           },
+          cancelToken: _cancelToken,
         );
 
-        _stopProgressTracking(isSuccess: true);
+        _stopTimer();
         final changesList = response.data as List;
         if (changesList.isNotEmpty) {
           setState(() {
@@ -163,31 +145,49 @@ class _ChatViewState extends State<ChatView> {
           });
         }
       } else {
-        // Modo consulta libre
         final response = await DI.apiClient.dio.post(
           '/api/ia/ask',
           data: {
             'Prompt': text,
             'ProjectRoot': widget.projectRoot,
           },
+          cancelToken: _cancelToken,
         );
 
-        _stopProgressTracking(isSuccess: true);
+        _stopTimer();
         final answer = (response.data['Answer'] ?? response.data['answer'] ?? '') as String;
         setState(() {
           _messages.add({'sender': 'ai', 'text': answer});
         });
       }
     } catch (e) {
-      _stopProgressTracking(isSuccess: false);
-      setState(() {
-        _messages.add({
-          'sender': 'ai',
-          'text': 'Lo siento, ocurrió un error al procesar tu solicitud: $e'
+      _stopTimer();
+      if (CancelToken.isCancel(e as DioException)) {
+        setState(() {
+          _messages.add({
+            'sender': 'ai',
+            'text': '⏹ Petición cancelada por el usuario.'
+          });
         });
-      });
+      } else {
+        String errorMsg = e.toString();
+        if (e is DioException && e.response?.data != null) {
+          if (e.response?.data is Map && e.response?.data['message'] != null) {
+            errorMsg = e.response!.data['message'].toString();
+          }
+        }
+        setState(() {
+          _messages.add({
+            'sender': 'ai',
+            'text': 'Lo siento, ocurrió un error al procesar tu solicitud: $errorMsg'
+          });
+        });
+      }
     } finally {
-      setState(() => _isLoading = false);
+      _stopTimer();
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       _scrollToBottom();
     }
   }
@@ -331,14 +331,14 @@ class _ChatViewState extends State<ChatView> {
               decoration: BoxDecoration(
                 color: const Color(0xFF151528),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF00CEC9).withOpacity(0.3)),
+                border: Border.all(color: const Color(0xFF6C5CE7).withOpacity(0.4)),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF00CEC9).withOpacity(0.08),
+                    color: const Color(0xFF6C5CE7).withOpacity(0.12),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   )
-                ]
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,34 +346,84 @@ class _ChatViewState extends State<ChatView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: Text(
-                          _progressStatus,
-                          style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF00CEC9)),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00CEC9)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '🧠 Modelo: $_activeModelName',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF00CEC9),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
                       Text(
-                        '⏱️ ${_elapsedSeconds}s / máx 5m',
-                        style: GoogleFonts.firaCode(fontSize: 11, color: const Color(0xFFA0A0C0)),
+                        '⏱️ ${_formatSeconds(_elapsedSeconds)}',
+                        style: GoogleFonts.firaCode(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFA0A0C0),
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: _progressValue,
-                      minHeight: 8,
-                      backgroundColor: const Color(0xFF1D1D30),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00CEC9)),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${(_progressValue * 100).toInt()}% completado',
-                    style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFFA0A0C0)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _modifyMode
+                              ? '⚡ Generando parches y estructura de código en PC...'
+                              : '💭 Procesando respuesta sin límite de tiempo...',
+                          style: GoogleFonts.outfit(fontSize: 11, color: Colors.white70),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          radius: 20,
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () {
+                            _cancelToken?.cancel('Cancelado por el usuario');
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.redAccent),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.stop_circle_rounded, size: 14, color: Colors.redAccent),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Detener Petición',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.redAccent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

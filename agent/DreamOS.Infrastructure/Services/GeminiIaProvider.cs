@@ -22,7 +22,7 @@ namespace DreamOS.Infrastructure.Services
         public GeminiIaProvider(LiteDbContext dbContext)
         {
             _httpClient = new HttpClient();
-            _httpClient.Timeout = TimeSpan.FromMinutes(5);
+            _httpClient.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
             _dbContext = dbContext;
         }
 
